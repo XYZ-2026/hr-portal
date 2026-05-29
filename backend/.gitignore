@@ -1,0 +1,17 @@
+# Credentials (sensitive)
+credentials/
+token.pkl
+
+# Generated files
+output/
+data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Virtual environment
+venv/
+.venv/
