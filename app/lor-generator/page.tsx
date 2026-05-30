@@ -8,16 +8,11 @@ import { EmptyState } from '@/components/shared/EmptyState';
 import { SelectField } from '@/components/shared/SelectField';
 import { useToastContext } from '@/components/providers/ToastProvider';
 import { LOR } from '@/types';
-import { formatDate, cn } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 import { useEmployees } from '@/hooks/useEmployees';
+import { lorApi } from '@/services/api';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, setDoc, updateDoc } from 'firebase/firestore';
-
-const DEFAULT_RECOMMENDATION = `I am writing to highly recommend [Employee Name] for [Position/Program]. During their tenure at College Simplified, they have consistently demonstrated exceptional [skills/qualities].
-
-[Employee Name] has been an invaluable member of our team, contributing significantly to [specific projects/achievements]. Their dedication, technical expertise, and collaborative spirit have made them a standout performer.
-
-I wholeheartedly endorse [Employee Name] for this opportunity and am confident they will bring the same level of excellence and commitment to your organization.`;
 
 export default function LORGeneratorPage() {
   const toast = useToastContext();
@@ -25,9 +20,6 @@ export default function LORGeneratorPage() {
   const [lors, setLors] = useState<LOR[]>([]);
   const [loadingLors, setLoadingLors] = useState(true);
   const [selectedEmp, setSelectedEmp] = useState('');
-  const [recipientName, setRecipientName] = useState('');
-  const [recipientOrg, setRecipientOrg] = useState('');
-  const [recommendation, setRecommendation] = useState(DEFAULT_RECOMMENDATION);
   const [generating, setGenerating] = useState(false);
   const [sendingId, setSendingId] = useState<string | null>(null);
 
@@ -59,79 +51,133 @@ export default function LORGeneratorPage() {
   }));
 
   const selectedEmpData = employees.find((e) => e.id === selectedEmp);
-  const charCount = recommendation.length;
-  const minChars = 200;
 
   const handleGenerate = async () => {
-    if (!selectedEmp || !recipientName || !recipientOrg) {
-      toast.warning('Missing fields', 'Please fill all required fields.');
+    if (!selectedEmp) {
+      toast.warning('Missing selection', 'Please select an employee.');
       return;
     }
-    if (charCount < minChars) {
-      toast.warning('Recommendation too short', `Please write at least ${minChars} characters.`);
+
+    const emp = employees.find((e) => e.id === selectedEmp);
+    if (!emp) return;
+
+    if (!emp.email) {
+      toast.warning('Missing email', 'Selected employee does not have an email address.');
       return;
     }
 
     setGenerating(true);
     try {
-      const emp = employees.find((e) => e.id === selectedEmp);
+      const today = new Date().toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      });
+
+      // Call the real backend — recommendation is auto-generated server-side
+      const response = await lorApi.generate({
+        employeeId: emp.employeeId || emp.id,
+        employeeName: emp.name,
+        employeeEmail: emp.email,
+        role: emp.role,
+        date: today,
+      });
+
+      const backendLor = response.data;
+
+      // Persist to Firestore with filenames
       const docRef = doc(collection(db, 'lors'));
-      
       const newLor: LOR = {
         id: docRef.id,
         employeeId: selectedEmp,
-        employeeName: emp?.name || '',
-        recipientName,
-        recipientOrg,
-        recommendation,
+        employeeName: emp.name,
+        employeeEmail: emp.email,
+        role: emp.role,
         generatedAt: new Date().toISOString(),
         status: 'Generated',
+        pdfFilename: backendLor.pdfFilename,
+        pptxFilename: backendLor.pptxFilename,
       };
-      
+
       await setDoc(docRef, newLor);
       setLors((prev) => [newLor, ...prev]);
-      toast.success('LOR generated!', `Recommendation letter for ${emp?.name} is ready.`);
+      toast.success('LOR generated!', `Recommendation letter PDF for ${emp.name} is ready.`);
       setSelectedEmp('');
-      setRecipientName('');
-      setRecipientOrg('');
-      setRecommendation(DEFAULT_RECOMMENDATION);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error('Failed to generate LOR', 'Unable to save to Firestore.');
+      toast.error('Failed to generate LOR', err?.message || 'Server error. Make sure the backend is running.');
     } finally {
       setGenerating(false);
     }
   };
 
-  const handleSend = async (id: string) => {
-    setSendingId(id);
+  const handleSend = async (lor: LOR) => {
+    if (!lor.pdfFilename || !lor.pptxFilename) {
+      toast.warning('Cannot send', 'PDF files not found. Please regenerate this LOR.');
+      return;
+    }
+
+    setSendingId(lor.id);
     try {
-      const docRef = doc(db, 'lors', id);
-      await updateDoc(docRef, { status: 'Sent' });
+      await lorApi.send(lor.id, {
+        employeeName: lor.employeeName,
+        employeeEmail: lor.employeeEmail || '',
+        pdfFilename: lor.pdfFilename,
+        pptxFilename: lor.pptxFilename,
+      });
+
+      // Update Firestore status and clear filenames (deleted server-side)
+      const docRef = doc(db, 'lors', lor.id);
+      await updateDoc(docRef, {
+        status: 'Sent',
+        sentAt: new Date().toISOString(),
+        pdfFilename: null,
+        pptxFilename: null,
+      });
+
       setLors((prev) =>
-        prev.map((l) => l.id === id ? { ...l, status: 'Sent' as const } : l)
+        prev.map((l) =>
+          l.id === lor.id
+            ? { ...l, status: 'Sent' as const, pdfFilename: undefined, pptxFilename: undefined }
+            : l
+        )
       );
-      toast.success('LOR sent!', 'Recommendation letter has been delivered.');
-    } catch (err) {
+      toast.success('LOR sent!', `Recommendation letter delivered to ${lor.employeeEmail || lor.employeeName}.`);
+    } catch (err: any) {
       console.error(err);
-      toast.error('Failed to send LOR', 'Could not update status in database.');
+      toast.error('Failed to send LOR', err?.message || 'Server error while sending email.');
     } finally {
       setSendingId(null);
     }
+  };
+
+  const handleDownload = (lor: LOR) => {
+    if (!lor.pdfFilename) {
+      toast.warning('No PDF', 'PDF has already been sent and deleted from server.');
+      return;
+    }
+    const url = lorApi.download(lor.id, lor.pdfFilename);
+    window.open(url, '_blank');
   };
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       <PageHeader
         title="LOR Generator"
-        subtitle="Create personalized letters of recommendation for your team"
+        subtitle="Create and email personalised letters of recommendation for your team"
       />
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         {/* Form */}
         <div className="xl:col-span-3 glass-card rounded-2xl p-6 space-y-4">
-          <h3 className="text-sm font-semibold text-foreground">New Recommendation Letter</h3>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">New Recommendation Letter</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              The recommendation body is professionally written — just fill in the employee and recipient details.
+            </p>
+          </div>
 
+          {/* Employee */}
           <div>
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
               Employee *
@@ -145,56 +191,15 @@ export default function LORGeneratorPage() {
             />
           </div>
 
-          {/* Recipient row */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                Recipient / Institution *
-              </label>
-              <input
-                value={recipientName}
-                onChange={(e) => setRecipientName(e.target.value)}
-                placeholder="e.g. Harvard Business School"
-                className="w-full h-10 px-3 rounded-xl border border-border bg-muted/30 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 transition-colors"
-                id="lor-recipient-name"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                Organization *
-              </label>
-              <input
-                value={recipientOrg}
-                onChange={(e) => setRecipientOrg(e.target.value)}
-                placeholder="e.g. Harvard University"
-                className="w-full h-10 px-3 rounded-xl border border-border bg-muted/30 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 transition-colors"
-                id="lor-recipient-org"
-              />
-            </div>
-          </div>
+          {/* Information Notice */}
 
-          {/* Recommendation textarea */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Recommendation Text *
-              </label>
-              <span
-                className={cn(
-                  'text-xs font-medium',
-                  charCount < minChars ? 'text-amber-400' : 'text-muted-foreground'
-                )}
-              >
-                {charCount}/{minChars} min chars
-              </span>
-            </div>
-            <textarea
-              value={recommendation}
-              onChange={(e) => setRecommendation(e.target.value)}
-              rows={8}
-              className="w-full px-3 py-2.5 rounded-xl border border-border bg-muted/30 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 transition-colors resize-none leading-relaxed"
-              id="lor-recommendation-text"
-            />
+          {/* Common recommendation notice */}
+          <div className="p-3 rounded-xl bg-muted/20 border border-border/60">
+            <p className="text-xs font-semibold text-muted-foreground mb-1">Common Recommendation Body (auto-generated)</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              The letter will include a professionally written recommendation paragraph describing the employee&apos;s
+              dedication, professionalism, and contributions during their tenure at Concept Simplified.
+            </p>
           </div>
 
           {/* Employee preview */}
@@ -206,8 +211,7 @@ export default function LORGeneratorPage() {
               <div className="flex-1">
                 <p className="text-sm font-semibold text-foreground">{selectedEmpData.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {selectedEmpData.role} · {selectedEmpData.department} · Since{' '}
-                  {formatDate(selectedEmpData.joiningDate)}
+                  {selectedEmpData.role} · {selectedEmpData.department} · {selectedEmpData.email}
                 </p>
               </div>
             </div>
@@ -222,7 +226,7 @@ export default function LORGeneratorPage() {
             {generating ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Generating LOR...
+                Generating PDF...
               </>
             ) : (
               <>
@@ -233,7 +237,7 @@ export default function LORGeneratorPage() {
           </button>
         </div>
 
-        {/* Generated LORs */}
+        {/* Generated LORs list */}
         <div className="xl:col-span-2 space-y-3">
           <h3 className="text-sm font-semibold text-foreground">
             Generated LORs ({loadingLors ? '...' : lors.length})
@@ -254,7 +258,7 @@ export default function LORGeneratorPage() {
               <div key={lor.id} className="glass-card rounded-2xl p-4">
                 <div className="flex items-start gap-3 mb-3">
                   <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-                    <BookOpen className="w-4.5 h-4.5 text-violet-400" />
+                    <BookOpen className="w-4 h-4 text-violet-400" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -263,29 +267,44 @@ export default function LORGeneratorPage() {
                       </p>
                       <StatusBadge status={lor.status} />
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      For {lor.recipientName}
-                    </p>
+                    {lor.recipientName || lor.recipientOrg ? (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        For {lor.recipientName} {lor.recipientOrg ? `· ${lor.recipientOrg}` : ''}
+                      </p>
+                    ) : (
+                      lor.role && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Role: {lor.role}
+                        </p>
+                      )
+                    )}
+                    {lor.employeeEmail && (
+                      <p className="text-[10px] text-muted-foreground">{lor.employeeEmail}</p>
+                    )}
                     <p className="text-[10px] text-muted-foreground">
                       {formatDate(lor.generatedAt)}
                     </p>
                   </div>
                 </div>
 
-                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 mb-3">
-                  {lor.recommendation.slice(0, 120)}...
-                </p>
-
                 <div className="flex items-center gap-2">
-                  <button className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all">
-                    <Download className="w-3 h-3" />
-                    PDF
-                  </button>
+                  {/* Download PDF — only if still on server */}
+                  {lor.pdfFilename && lor.status === 'Generated' && (
+                    <button
+                      onClick={() => handleDownload(lor)}
+                      className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all"
+                      id={`download-lor-${lor.id}`}
+                    >
+                      <Download className="w-3 h-3" />
+                      PDF
+                    </button>
+                  )}
                   {lor.status === 'Generated' && (
                     <button
-                      onClick={() => handleSend(lor.id)}
+                      onClick={() => handleSend(lor)}
                       disabled={sendingId === lor.id}
                       className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-primary/10 border border-primary/20 text-xs font-semibold text-primary hover:bg-primary/20 transition-all"
+                      id={`send-lor-${lor.id}`}
                     >
                       {sendingId === lor.id ? (
                         <Loader2 className="w-3 h-3 animate-spin" />

@@ -184,15 +184,37 @@ export const experienceLetterApi = {
 
   generate: async (payload: {
     employeeId: string;
+    employeeName: string;
+    employeeEmail: string;
+    role: string;
+    joiningDate: string;
     relievingDate: string;
+    duration: string;
+    date: string;
   }): Promise<ApiResponse<ExperienceLetter>> => {
     const response = await apiClient.post('/generate-experience-letter', payload);
     return response.data;
   },
 
-  send: async (letterId: string): Promise<ApiResponse<ExperienceLetter>> => {
-    const response = await apiClient.post(`/experience-letters/${letterId}/send`);
+  send: async (
+    letterId: string,
+    payload: {
+      employeeName: string;
+      employeeEmail: string;
+      role: string;
+      joiningDate: string;
+      relievingDate: string;
+      duration: string;
+      pdfFilename: string;
+      pptxFilename: string;
+    }
+  ): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post(`/experience-letters/${letterId}/send`, payload);
     return response.data;
+  },
+
+  download: (letterId: string, filename: string): string => {
+    return `${BASE_URL}/experience-letters/${letterId}/download?filename=${encodeURIComponent(filename)}`;
   },
 };
 
@@ -205,17 +227,30 @@ export const lorApi = {
 
   generate: async (payload: {
     employeeId: string;
-    recipientName: string;
-    recipientOrg: string;
-    recommendation: string;
+    employeeName: string;
+    employeeEmail: string;
+    role: string;
+    date: string;
   }): Promise<ApiResponse<LOR>> => {
     const response = await apiClient.post('/generate-lor', payload);
     return response.data;
   },
 
-  send: async (lorId: string): Promise<ApiResponse<LOR>> => {
-    const response = await apiClient.post(`/lors/${lorId}/send`);
+  send: async (
+    lorId: string,
+    payload: {
+      employeeName: string;
+      employeeEmail: string;
+      pdfFilename: string;
+      pptxFilename: string;
+    }
+  ): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post(`/lors/${lorId}/send`, payload);
     return response.data;
+  },
+
+  download: (lorId: string, filename: string): string => {
+    return `${BASE_URL}/lors/${lorId}/download?filename=${encodeURIComponent(filename)}`;
   },
 };
 

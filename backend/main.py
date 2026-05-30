@@ -1,8 +1,8 @@
 """
 HR Portal — FastAPI Backend
 
-Endpoints for offer letter generation, email sending, PDF download,
-and template CRUD management.
+Endpoints for offer letter generation, experience letter generation,
+LOR generation, email sending, PDF download, and template CRUD management.
 """
 
 import os
@@ -18,6 +18,10 @@ from pydantic import BaseModel
 from offer_letter_service import (
     generate_offer_letter,
     send_offer_letter_email,
+    generate_experience_letter,
+    send_experience_letter_email,
+    generate_lor,
+    send_lor_email,
     OUTPUT_DIR,
 )
 
@@ -654,3 +658,245 @@ async def download_offer_letter(letter_id: str, filename: str):
         media_type="application/pdf",
     )
 
+
+# =====================================================
+# EXPERIENCE LETTER MODELS
+# =====================================================
+
+class GenerateExperienceLetterRequest(BaseModel):
+    employeeId: str
+    employeeName: str
+    employeeEmail: str
+    role: str
+    joiningDate: str
+    relievingDate: str
+    duration: str
+    date: str
+
+
+class SendExperienceLetterRequest(BaseModel):
+    employeeName: str
+    employeeEmail: str
+    role: str
+    joiningDate: str
+    relievingDate: str
+    duration: str
+    pdfFilename: str
+    pptxFilename: str
+
+
+# =====================================================
+# EXPERIENCE LETTER ENDPOINTS
+# =====================================================
+
+@app.get("/experience-letters")
+async def list_experience_letters():
+    return {"success": True, "data": []}
+
+
+@app.post("/generate-experience-letter")
+async def generate_experience_letter_endpoint(req: GenerateExperienceLetterRequest):
+    """Generate an experience letter: fill PPTX template → convert to PDF."""
+    try:
+        result = generate_experience_letter(
+            employee_name=req.employeeName,
+            employee_email=req.employeeEmail,
+            employee_id=req.employeeId,
+            role=req.role,
+            joining_date=req.joiningDate,
+            relieving_date=req.relievingDate,
+            duration=req.duration,
+            date=req.date,
+        )
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    now = datetime.now(timezone.utc).isoformat()
+    letter_id = f"EL-{uuid.uuid4().hex[:8]}"
+
+    return {
+        "success": True,
+        "data": {
+            "id": letter_id,
+            "employeeId": req.employeeId,
+            "employeeName": req.employeeName,
+            "employeeEmail": req.employeeEmail,
+            "role": req.role,
+            "joiningDate": req.joiningDate,
+            "relievingDate": req.relievingDate,
+            "duration": req.duration,
+            "generatedAt": now,
+            "status": "Generated",
+            "pdfFilename": os.path.basename(result["pdf_path"]),
+            "pptxFilename": os.path.basename(result["pptx_path"]),
+        },
+        "message": f"Experience letter generated for {req.employeeName}",
+    }
+
+
+@app.post("/experience-letters/{letter_id}/send")
+async def send_experience_letter_endpoint(letter_id: str, req: SendExperienceLetterRequest):
+    """Send the generated experience letter PDF via Gmail and delete temporary files."""
+    pdf_path = os.path.join(OUTPUT_DIR, req.pdfFilename)
+    pptx_path = os.path.join(OUTPUT_DIR, req.pptxFilename)
+
+    if not os.path.exists(pdf_path):
+        raise HTTPException(status_code=404, detail="PDF file not found. Please regenerate.")
+
+    try:
+        send_experience_letter_email(
+            employee_name=req.employeeName,
+            employee_email=req.employeeEmail,
+            role=req.role,
+            joining_date=req.joiningDate,
+            relieving_date=req.relievingDate,
+            duration=req.duration,
+            pdf_path=pdf_path,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
+
+    # Cleanup temp files
+    for filepath in [pptx_path, pdf_path]:
+        if os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+                print(f"[Cleanup] Deleted: {filepath}")
+            except Exception as del_err:
+                print(f"[Cleanup] Error deleting {filepath}: {del_err}")
+
+    now = datetime.now(timezone.utc).isoformat()
+    return {
+        "success": True,
+        "data": {"status": "Sent", "sentAt": now},
+        "message": f"Experience letter sent to {req.employeeEmail} and files deleted.",
+    }
+
+
+@app.get("/experience-letters/{letter_id}/download")
+async def download_experience_letter(letter_id: str, filename: str):
+    """Download the generated experience letter PDF."""
+    pdf_path = os.path.join(OUTPUT_DIR, filename)
+    if not os.path.exists(pdf_path):
+        raise HTTPException(status_code=404, detail="PDF file not found or already deleted after sending.")
+
+    return FileResponse(
+        path=pdf_path,
+        filename=filename,
+        media_type="application/pdf",
+    )
+
+
+# =====================================================
+# LOR MODELS
+# =====================================================
+
+class GenerateLORRequest(BaseModel):
+    employeeId: str
+    employeeName: str
+    employeeEmail: str
+    role: str
+    date: str
+
+
+class SendLORRequest(BaseModel):
+    employeeName: str
+    employeeEmail: str
+    pdfFilename: str
+    pptxFilename: str
+
+
+# =====================================================
+# LOR ENDPOINTS
+# =====================================================
+
+@app.get("/lors")
+async def list_lors():
+    return {"success": True, "data": []}
+
+
+@app.post("/generate-lor")
+async def generate_lor_endpoint(req: GenerateLORRequest):
+    """Generate a Letter of Recommendation: fill PPTX template → convert to PDF."""
+    try:
+        result = generate_lor(
+            employee_name=req.employeeName,
+            employee_email=req.employeeEmail,
+            employee_id=req.employeeId,
+            role=req.role,
+            date=req.date,
+        )
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    now = datetime.now(timezone.utc).isoformat()
+    lor_id = f"LOR-{uuid.uuid4().hex[:8]}"
+
+    return {
+        "success": True,
+        "data": {
+            "id": lor_id,
+            "employeeId": req.employeeId,
+            "employeeName": req.employeeName,
+            "employeeEmail": req.employeeEmail,
+            "role": req.role,
+            "generatedAt": now,
+            "status": "Generated",
+            "pdfFilename": os.path.basename(result["pdf_path"]),
+            "pptxFilename": os.path.basename(result["pptx_path"]),
+        },
+        "message": f"LOR generated for {req.employeeName}",
+    }
+
+
+@app.post("/lors/{lor_id}/send")
+async def send_lor_endpoint(lor_id: str, req: SendLORRequest):
+    """Send the generated LOR PDF via Gmail and delete temporary files."""
+    pdf_path = os.path.join(OUTPUT_DIR, req.pdfFilename)
+    pptx_path = os.path.join(OUTPUT_DIR, req.pptxFilename)
+
+    if not os.path.exists(pdf_path):
+        raise HTTPException(status_code=404, detail="PDF file not found. Please regenerate.")
+
+    try:
+        send_lor_email(
+            employee_name=req.employeeName,
+            employee_email=req.employeeEmail,
+            pdf_path=pdf_path,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
+
+    # Cleanup temp files
+    for filepath in [pptx_path, pdf_path]:
+        if os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+                print(f"[Cleanup] Deleted: {filepath}")
+            except Exception as del_err:
+                print(f"[Cleanup] Error deleting {filepath}: {del_err}")
+
+    now = datetime.now(timezone.utc).isoformat()
+    return {
+        "success": True,
+        "data": {"status": "Sent", "sentAt": now},
+        "message": f"LOR sent to {req.employeeEmail} and files deleted.",
+    }
+
+
+@app.get("/lors/{lor_id}/download")
+async def download_lor(lor_id: str, filename: str):
+    """Download the generated LOR PDF."""
+    pdf_path = os.path.join(OUTPUT_DIR, filename)
+    if not os.path.exists(pdf_path):
+        raise HTTPException(status_code=404, detail="PDF file not found or already deleted after sending.")
+
+    return FileResponse(
+        path=pdf_path,
+        filename=filename,
+        media_type="application/pdf",
+    )

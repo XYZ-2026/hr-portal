@@ -33,7 +33,7 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Email config — loaded from environment or defaults
 SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'sairamjoshi.cs@gmail.com')
-CC_EMAIL = os.environ.get('CC_EMAIL', 'sairamjoshi28@gmail.com')
+CC_EMAIL = os.environ.get('CC_EMAIL', 'support@collegesimplified.in')
 
 
 # =====================================================
@@ -106,41 +106,97 @@ def _get_libreoffice():
 
 def _replace_text_in_shape(shape, replacements: dict):
     """
-    Replace placeholder text in a PowerPoint shape while preserving formatting.
-    
+    Replace placeholder text in a PowerPoint shape.
+
     replacements: dict of { "{{PLACEHOLDER}}": ("value", make_bold) }
+
+    For each run containing a placeholder the run is SPLIT at the placeholder
+    boundary into three sub-runs (all cloned from the original run's formatting):
+
+        [before | value | after]
+
+    The 'value' sub-run gets typeface "Poppins Bold" + b="1" when make_bold is
+    True, or typeface "Poppins" with no b attribute when make_bold is False.
+    The 'before' and 'after' sub-runs always get typeface "Poppins" with no b
+    attribute, so surrounding sentence text stays non-bold regardless of how
+    the original paragraph was formatted.
     """
     if not shape.has_text_frame:
         return
 
-    for paragraph in shape.text_frame.paragraphs:
-        for run in paragraph.runs:
-            for placeholder, (new_value, make_bold) in replacements.items():
-                if placeholder in run.text:
-                    # Preserve original formatting
-                    original_size = run.font.size
-                    original_italic = run.font.italic
-                    original_underline = run.font.underline
-                    try:
-                        original_color = run.font.color.rgb
-                    except Exception:
-                        original_color = None
+    import copy
+    from lxml import etree
 
-                    # Replace text
-                    run.text = run.text.replace(placeholder, str(new_value))
+    NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+    QNAME_R   = f'{{{NS}}}r'
+    QNAME_RPR = f'{{{NS}}}rPr'
+    QNAME_T   = f'{{{NS}}}t'
+    QNAME_LAT = f'{{{NS}}}latin'
 
-                    # Restore formatting
-                    run.font.name = FONT_NAME
-                    run.font.bold = make_bold
-                    if original_size:
-                        run.font.size = original_size
-                    run.font.italic = original_italic
-                    run.font.underline = original_underline
-                    if original_color:
-                        try:
-                            run.font.color.rgb = original_color
-                        except Exception:
-                            pass
+    def _make_sub_run(source_r, text: str, bold: bool):
+        """Clone source_r, set its text, and apply bold/normal typeface."""
+        r = copy.deepcopy(source_r)
+        # Set text
+        t = r.find(QNAME_T)
+        if t is None:
+            t = etree.SubElement(r, QNAME_T)
+        t.text = text
+        # Adjust rPr
+        rPr = r.find(QNAME_RPR)
+        if rPr is None:
+            rPr = etree.SubElement(r, QNAME_RPR)
+            r.insert(0, rPr)
+        if bold:
+            rPr.set('b', '1')
+            typeface = 'Poppins Bold'
+        else:
+            rPr.attrib.pop('b', None)      # remove bold attribute entirely
+            typeface = 'Poppins'
+        # Update latin typeface
+        lat = rPr.find(QNAME_LAT)
+        if lat is None:
+            lat = etree.SubElement(rPr, QNAME_LAT)
+        lat.set('typeface', typeface)
+        return r
+
+    def _replace_in_para(para_elem, placeholder: str, value: str, make_bold: bool):
+        """Replace ONE placeholder in all runs of a paragraph, splitting as needed."""
+        # Iterate over current <a:r> elements; rebuild list after each mutation
+        processed = 0
+        while True:
+            runs = para_elem.findall(QNAME_R)
+            found = False
+            for r_elem in runs[processed:]:
+                t_elem = r_elem.find(QNAME_T)
+                text = (t_elem.text or '') if t_elem is not None else ''
+                if placeholder not in text:
+                    processed += 1
+                    continue
+                # Found — split this run
+                idx   = text.index(placeholder)
+                before = text[:idx]
+                after  = text[idx + len(placeholder):]
+                parent = r_elem.getparent()
+                pos    = list(parent).index(r_elem)
+                parent.remove(r_elem)
+                insert_at = pos
+                if before:
+                    parent.insert(insert_at, _make_sub_run(r_elem, before, False))
+                    insert_at += 1
+                parent.insert(insert_at, _make_sub_run(r_elem, value, make_bold))
+                insert_at += 1
+                if after:
+                    parent.insert(insert_at, _make_sub_run(r_elem, after, False))
+                found = True
+                break   # restart scan from the same position
+            if not found:
+                break
+
+    txBody = shape.text_frame._txBody
+    NS_P = f'{{{NS}}}p'
+    for para_elem in txBody.findall(NS_P):
+        for placeholder, (new_value, make_bold) in replacements.items():
+            _replace_in_para(para_elem, placeholder, str(new_value), make_bold)
 
 
 # =====================================================
@@ -445,4 +501,174 @@ Founder, Concept Simplified
         body=body,
         attachment_path=pdf_path,
         cc_email=CC_EMAIL
+    )
+
+
+# =====================================================
+# GENERATE EXPERIENCE LETTER (Full Pipeline)
+# =====================================================
+
+def generate_experience_letter(
+    employee_name: str,
+    employee_email: str,
+    employee_id: str,
+    role: str,
+    joining_date: str,
+    relieving_date: str,
+    duration: str,
+    date: str,
+    template_filename: str = "EXPERIENCE_LETTER.pptx"
+) -> dict:
+    """
+    Full pipeline: Fill EXPERIENCE_LETTER template -> Convert to PDF -> Return paths.
+
+    Returns:
+        dict with 'pptx_path' and 'pdf_path' keys.
+    """
+    # Exact placeholders from the user's edited EXPERIENCE_LETTER.pptx:
+    # TextBox 29: {{DATE}}
+    # TextBox 30: {{ID}}
+    # TextBox 32: {{NAME}}, {{ID}}, {{ROLE}}, {{JOIN_DATE}}, {{RELIEVE_DATE}}, {{DURATION}}
+    replacements = {
+        "{{DATE}}":         (date, True),
+        "{{ID}}":           (employee_id, True),
+        "{{NAME}}":         (employee_name, True),
+        "{{ROLE}}":         (role, True),
+        "{{JOIN_DATE}}":    (joining_date, True),
+        "{{RELIEVE_DATE}}": (relieving_date, True),
+        "{{DURATION}}":     (duration, True),
+    }
+
+    output_name = f"{employee_name}_Experience_Letter"
+
+    pptx_path = fill_template(template_filename, replacements, output_name)
+    pdf_path = convert_to_pdf(pptx_path)
+
+    return {
+        "pptx_path": pptx_path,
+        "pdf_path": pdf_path,
+    }
+
+
+def send_experience_letter_email(
+    employee_name: str,
+    employee_email: str,
+    role: str,
+    joining_date: str,
+    relieving_date: str,
+    duration: str,
+    pdf_path: str,
+) -> None:
+    """Send the experience letter PDF to the employee via Gmail."""
+    subject = f"Experience Letter - {employee_name}"
+    body = f"""Dear {employee_name},
+
+Please find your Experience Letter attached to this email.
+
+Details:
+  Role: {role}
+  Joining Date: {joining_date}
+  Last Working Day: {relieving_date}
+  Duration: {duration}
+
+We sincerely appreciate your contributions to Concept Simplified and wish you all
+the very best in your future endeavours.
+
+Warm regards,
+
+Samkit Shah
+Founder, Concept Simplified
+"""
+
+    send_email(
+        to_email=employee_email,
+        subject=subject,
+        body=body,
+        attachment_path=pdf_path,
+        cc_email=CC_EMAIL,
+    )
+
+
+# =====================================================
+# GENERATE LOR (Full Pipeline)
+# =====================================================
+
+def generate_lor(
+    employee_name: str,
+    employee_email: str,
+    employee_id: str,
+    role: str,
+    date: str,
+    template_filename: str = "LOR.pptx"
+) -> dict:
+    """
+    Full pipeline: Fill LOR template -> Convert to PDF -> Return paths.
+
+    The recommendation body is a standard professional paragraph — no user
+    input required. Only the dynamic fields (name, role) are substituted.
+
+    Returns:
+        dict with 'pptx_path' and 'pdf_path' keys.
+    """
+    # Exact placeholders from the user's edited LOR.pptx:
+    # TextBox 29: {{DATE}}
+    # TextBox 30: {{ID}}
+    # TextBox 32: {{NAME}}, {{ROLE}}, {{RECOMMENDATION}}
+    #
+    # {{RECOMMENDATION}} receives a common professional paragraph — the HR
+    # user does not need to write it manually.
+    common_recommendation = (
+        f"{employee_name} was a valued member of our team who demonstrated consistent "
+        f"dedication, strong work ethic, and a collaborative attitude throughout their "
+        f"tenure at Concept Simplified. Their contributions were meaningful and impactful, "
+        f"and they approached every responsibility with professionalism and integrity. "
+        f"We have observed their professional and personal growth over this period and are "
+        f"fully confident in their capabilities. We believe {employee_name} will be a "
+        f"valuable asset to any organisation or academic programme they choose to pursue."
+    )
+
+    replacements = {
+        "{{DATE}}":           (date, True),
+        "{{ID}}":             (employee_id, True),
+        "{{NAME}}":           (employee_name, True),
+        "{{ROLE}}":           (role, True),
+        "{{RECOMMENDATION}}": (common_recommendation, False),
+    }
+
+    output_name = f"{employee_name}_LOR"
+
+    pptx_path = fill_template(template_filename, replacements, output_name)
+    pdf_path = convert_to_pdf(pptx_path)
+
+    return {
+        "pptx_path": pptx_path,
+        "pdf_path": pdf_path,
+    }
+
+
+def send_lor_email(
+    employee_name: str,
+    employee_email: str,
+    pdf_path: str,
+) -> None:
+    """Send the LOR PDF to the employee via Gmail."""
+    subject = f"Letter of Recommendation - {employee_name}"
+    body = f"""Dear {employee_name},
+
+Please find your Letter of Recommendation attached to this email.
+
+We are happy to support your journey and wish you the best of luck!
+
+Warm regards,
+
+Samkit Shah
+Founder, Concept Simplified
+"""
+
+    send_email(
+        to_email=employee_email,
+        subject=subject,
+        body=body,
+        attachment_path=pdf_path,
+        cc_email=CC_EMAIL,
     )

@@ -68,11 +68,15 @@ export interface ExperienceLetter {
   id: string;
   employeeId: string;
   employeeName: string;
+  employeeEmail?: string;
+  role?: string;
   joiningDate: string;
   relievingDate: string;
   duration: string;
   generatedAt: string;
   status: LetterStatus;
+  pdfFilename?: string;
+  pptxFilename?: string;
   downloadUrl?: string;
 }
 
@@ -80,11 +84,15 @@ export interface LOR {
   id: string;
   employeeId: string;
   employeeName: string;
-  recipientName: string;
-  recipientOrg: string;
-  recommendation: string;
+  employeeEmail?: string;
+  role?: string;
+  recipientName?: string;
+  recipientOrg?: string;
+  recommendation?: string;
   generatedAt: string;
   status: LetterStatus;
+  pdfFilename?: string;
+  pptxFilename?: string;
 }
 
 export interface SalaryDataPoint {

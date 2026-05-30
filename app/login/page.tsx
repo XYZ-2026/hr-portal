@@ -9,6 +9,7 @@ export default function LoginPage() {
   const { login, error, clearError, isLoading: authLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showEmail, setShowEmail] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -88,14 +89,22 @@ export default function LoginPage() {
                 <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                 <input
                   id="login-email"
-                  type="email"
+                  type={showEmail ? 'text' : 'password'}
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); clearError(); }}
-                  placeholder="admin@collegesimplified.in"
+                  placeholder="••••••••"
                   autoComplete="email"
                   required
                   className="bg-transparent outline-none flex-1 text-sm text-foreground placeholder:text-muted-foreground"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowEmail(!showEmail)}
+                  className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+                  tabIndex={-1}
+                >
+                  {showEmail ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 

@@ -18,7 +18,7 @@ module.exports = {
       cwd: '/var/www/hr-portal/backend',
       env: {
         SENDER_EMAIL: 'sairamjoshi.cs@gmail.com',
-        CC_EMAIL: 'sairamjoshi28@gmail.com',
+        CC_EMAIL: 'support@collegesimplified.in',
         FRONTEND_URL: 'https://yourdomain.com',
       },
     },
