@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Poppins } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { ToastProvider } from '@/components/providers/ToastProvider';
@@ -7,9 +7,10 @@ import { AuthProvider } from '@/components/providers/AuthProvider';
 import { AuthGuard } from '@/components/providers/AuthGuard';
 import { AppShell } from '@/components/layout/AppShell';
 
-const inter = Inter({
+const poppins = Poppins({
+  weight: ['400', '500', '600', '700', '900'],
   subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-poppins',
   display: 'swap',
 });
 
@@ -31,7 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${poppins.variable} font-sans antialiased`}>
         <ThemeProvider>
           <AuthProvider>
             <ToastProvider>

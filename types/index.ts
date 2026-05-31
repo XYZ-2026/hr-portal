@@ -26,6 +26,7 @@ export interface Employee {
   status: EmployeeStatus;
   avatar?: string;
   phone?: string;
+  upiId?: string;
 }
 
 export type LetterStatus = 'Generated' | 'Sent' | 'Pending' | 'Draft';
@@ -179,4 +180,38 @@ export interface CreateEmployeePayload {
   joiningDate: string;
   status: EmployeeStatus;
   generateOfferLetter?: boolean;
+}
+
+export interface Attendance {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  date: string; // YYYY-MM-DD
+  checkInTime?: string; // ISO string
+  checkOutTime?: string; // ISO string
+  summary?: string;
+  status: 'present' | 'absent';
+  
+  // Sunday Reimbursement Fields
+  isSunday?: boolean;
+  sundayReimbursementStatus?: 'none' | 'pending' | 'approved' | 'rejected';
+  sundayNotes?: string;
+  sundayRemarks?: string;
+}
+
+export interface PaymentRecord {
+  id: string; // employeeId_YYYY-MM
+  employeeId: string;
+  employeeName: string;
+  month: string; // YYYY-MM
+  salaryAmount: number;
+  presentDays: number;
+  absentDays: number;
+  sundayWorkedCount: number;
+  totalPayableDays: number;
+  upiId: string;
+  paymentStatus: 'Pending' | 'Paid' | 'Processing';
+  remarks?: string;
+  transactionRef?: string;
+  updatedAt: string;
 }

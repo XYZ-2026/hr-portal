@@ -126,15 +126,15 @@ export default function DashboardPage() {
   const sentLetters = offerLetters.filter((l) => l.status === 'Sent').length;
 
   // Dynamic calculations for lower stats bar
-  const avgSalary = totalEmployees > 0 
+  const avgSalary = totalEmployees > 0
     ? formatCurrency(employees.reduce((s, e) => s + (Number(e.salary) || 0), 0) / totalEmployees)
     : '₹0';
 
   const highestPaidEmp = employees.length > 0
     ? [...employees].sort((a, b) => (Number(b.salary) || 0) - (Number(a.salary) || 0))[0]
     : null;
-  const highestPaid = highestPaidEmp 
-    ? formatCurrency(Number(highestPaidEmp.salary)) 
+  const highestPaid = highestPaidEmp
+    ? formatCurrency(Number(highestPaidEmp.salary))
     : '₹0';
 
   const currentYear = new Date().getFullYear();

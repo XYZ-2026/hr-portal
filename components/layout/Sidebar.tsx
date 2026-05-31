@@ -15,9 +15,11 @@ import {
   Sparkles,
   Layers,
   X,
+  DollarSign,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEmployees } from '@/hooks/useEmployees';
+import { useAuth } from '@/components/providers/AuthProvider';
 
 interface NavItem {
   label: string;
@@ -25,51 +27,6 @@ interface NavItem {
   icon: React.ReactNode;
   badge?: string;
 }
-
-const NAV_ITEMS: NavItem[] = [
-  {
-    label: 'Dashboard',
-    href: '/dashboard',
-    icon: <LayoutDashboard className="w-4.5 h-4.5" />,
-  },
-  {
-    label: 'Employees',
-    href: '/employees',
-    icon: <Users className="w-4.5 h-4.5" />,
-  },
-  {
-    label: 'Offer Letters',
-    href: '/offer-letters',
-    icon: <FileText className="w-4.5 h-4.5" />,
-  },
-  {
-    label: 'Offer Templates',
-    href: '/offer-templates',
-    icon: <Layers className="w-4.5 h-4.5" />,
-    badge: 'New',
-  },
-  {
-    label: 'Experience Letters',
-    href: '/experience-letters',
-    icon: <Award className="w-4.5 h-4.5" />,
-  },
-  {
-    label: 'LOR Generator',
-    href: '/lor-generator',
-    icon: <BookOpen className="w-4.5 h-4.5" />,
-    badge: 'New',
-  },
-  {
-    label: 'Salary Analytics',
-    href: '/salary-analytics',
-    icon: <BarChart3 className="w-4.5 h-4.5" />,
-  },
-  {
-    label: 'Settings',
-    href: '/settings',
-    icon: <Settings className="w-4.5 h-4.5" />,
-  },
-];
 
 interface SidebarProps {
   collapsed: boolean;
@@ -81,10 +38,82 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const { employees } = useEmployees();
+  const { isAdmin, isEmployee, user } = useAuth();
 
   const activeEmployees = employees.filter((e) => e.status === 'Active').length;
   const totalEmployees = employees.length;
   const progressPercent = totalEmployees > 0 ? (activeEmployees / totalEmployees) * 100 : 0;
+
+  const navItems: NavItem[] = isAdmin
+    ? [
+      {
+        label: 'Dashboard',
+        href: '/dashboard',
+        icon: <LayoutDashboard className="w-4.5 h-4.5" />,
+      },
+      {
+        label: 'Employees',
+        href: '/employees',
+        icon: <Users className="w-4.5 h-4.5" />,
+      },
+      {
+        label: 'Daily Summaries',
+        href: '/daily-summaries',
+        icon: <FileText className="w-4.5 h-4.5" />,
+        badge: 'New',
+      },
+      {
+        label: 'Offer Letters',
+        href: '/offer-letters',
+        icon: <FileText className="w-4.5 h-4.5" />,
+      },
+      {
+        label: 'Offer Templates',
+        href: '/offer-templates',
+        icon: <Layers className="w-4.5 h-4.5" />,
+        badge: 'New',
+      },
+      {
+        label: 'Experience Letters',
+        href: '/experience-letters',
+        icon: <Award className="w-4.5 h-4.5" />,
+      },
+      {
+        label: 'LOR Generator',
+        href: '/lor-generator',
+        icon: <BookOpen className="w-4.5 h-4.5" />,
+        badge: 'New',
+      },
+      {
+        label: 'Salary Analytics',
+        href: '/salary-analytics',
+        icon: <BarChart3 className="w-4.5 h-4.5" />,
+      },
+      {
+        label: 'Payments',
+        href: '/payments',
+        icon: <DollarSign className="w-4.5 h-4.5" />,
+        badge: 'New',
+      },
+      {
+        label: 'Settings',
+        href: '/settings',
+        icon: <Settings className="w-4.5 h-4.5" />,
+      },
+    ]
+    : [
+      {
+        label: 'Shift Control',
+        href: '/employee-dashboard',
+        icon: <LayoutDashboard className="w-4.5 h-4.5" />,
+      },
+      {
+        label: 'Shift History',
+        href: '/employee-dashboard/history',
+        icon: <FileText className="w-4.5 h-4.5" />,
+        badge: 'New',
+      },
+    ];
 
   return (
     <aside
@@ -140,9 +169,13 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
 
       {/* Nav items */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const isActive =
-            pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+            pathname === item.href ||
+            (item.href !== '/' &&
+              item.href !== '/employee-dashboard' &&
+              item.href !== '/dashboard' &&
+              pathname.startsWith(item.href));
 
           return (
             <Link
@@ -190,7 +223,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
 
       {/* Bottom section */}
       <div className="p-3 border-t border-border flex-shrink-0">
-        {!collapsed && (
+        {!collapsed && isAdmin && (
           <div className="mb-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
             <p className="text-xs font-semibold text-foreground">College Simplified</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -202,6 +235,16 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
+          </div>
+        )}
+
+        {!collapsed && isEmployee && (
+          <div className="mb-3 p-3 rounded-xl bg-primary/5 border border-primary/10 flex flex-col gap-1">
+            <p className="text-xs font-bold text-foreground truncate">{user?.displayName || 'Employee'}</p>
+            <p className="text-[10px] text-muted-foreground font-mono truncate">{user?.email}</p>
+            <span className="inline-flex self-start text-[9px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary mt-1">
+              Employee Portal
+            </span>
           </div>
         )}
 

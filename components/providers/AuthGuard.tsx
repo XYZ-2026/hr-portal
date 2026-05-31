@@ -10,7 +10,7 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isAdmin, isEmployee } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -20,11 +20,38 @@ export function AuthGuard({ children }: AuthGuardProps) {
     if (!isLoading) {
       if (!user && !isLoginPage) {
         router.replace('/login');
-      } else if (user && isLoginPage) {
-        router.replace('/dashboard');
+      } else if (user) {
+        if (isLoginPage) {
+          if (isAdmin) {
+            router.replace('/dashboard');
+          } else {
+            router.replace('/employee-dashboard');
+          }
+        } else {
+          const isAdminRoute = [
+            '/dashboard',
+            '/employees',
+            '/offer-letters',
+            '/offer-templates',
+            '/experience-letters',
+            '/lor-generator',
+            '/salary-analytics',
+            '/settings',
+            '/daily-summaries',
+            '/payments',
+          ].some((route) => pathname === route || pathname.startsWith(route + '/'));
+
+          const isEmployeeRoute = pathname === '/employee-dashboard' || pathname.startsWith('/employee-dashboard/');
+
+          if (isEmployee && isAdminRoute) {
+            router.replace('/employee-dashboard');
+          } else if (isAdmin && isEmployeeRoute) {
+            router.replace('/dashboard');
+          }
+        }
       }
     }
-  }, [user, isLoading, isLoginPage, router]);
+  }, [user, isLoading, isLoginPage, isAdmin, isEmployee, pathname, router]);
 
   // Full screen loading while checking auth state
   if (isLoading) {
@@ -46,6 +73,29 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   // Authenticated but trying to access login — blank while redirecting
   if (user && isLoginPage) {
+    return null;
+  }
+
+  const isAdminRoute = [
+    '/dashboard',
+    '/employees',
+    '/offer-letters',
+    '/offer-templates',
+    '/experience-letters',
+    '/lor-generator',
+    '/salary-analytics',
+    '/settings',
+    '/daily-summaries',
+    '/payments',
+  ].some((route) => pathname === route || pathname.startsWith(route + '/'));
+
+  const isEmployeeRoute = pathname === '/employee-dashboard' || pathname.startsWith('/employee-dashboard/');
+
+  if (user && isEmployee && isAdminRoute) {
+    return null;
+  }
+
+  if (user && isAdmin && isEmployeeRoute) {
     return null;
   }
 

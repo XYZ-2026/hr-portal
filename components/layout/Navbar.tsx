@@ -21,6 +21,7 @@ import {
   LayoutDashboard,
   Users,
   CornerDownLeft,
+  DollarSign,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useState, useEffect, useRef } from 'react';
@@ -36,6 +37,7 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
   '/lor-generator': { title: 'LOR Generator', subtitle: 'Create recommendation letters' },
   '/salary-analytics': { title: 'Salary Analytics', subtitle: 'Compensation insights' },
   '/settings': { title: 'Settings', subtitle: 'Configure your portal' },
+  '/payments': { title: 'Payments Management', subtitle: 'Process payroll & Sunday duties' },
 };
 
 interface NavbarProps {
@@ -47,9 +49,9 @@ export function Navbar({ onMobileMenuToggle }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const { employees } = useEmployees();
-  
+
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,10 +62,15 @@ export function Navbar({ onMobileMenuToggle }: NavbarProps) {
     Object.entries(PAGE_TITLES).find(([key]) => pathname.startsWith(key))?.[1] ||
     PAGE_TITLES['/dashboard'];
 
-  // Derive display info from Firebase user
-  const displayName = user?.displayName || 'Admin';
+  // Find current employee if the logged-in user is not admin
+  const currentEmployee = employees.find(emp => emp.id === user?.uid);
+  const displayName = isAdmin
+    ? (user?.displayName || 'Admin')
+    : (currentEmployee?.name || user?.displayName || user?.email?.split('@')[0] || 'Employee');
   const displayEmail = user?.email || '';
-  const displayRole = 'HR Administrator';
+  const displayRole = isAdmin
+    ? 'HR Administrator'
+    : (currentEmployee?.role || 'Employee');
 
   const handleLogout = async () => {
     setUserMenuOpen(false);
@@ -78,12 +85,14 @@ export function Navbar({ onMobileMenuToggle }: NavbarProps) {
     { id: 'nav-offer', label: 'Go to Offer Letters', description: 'Generate offer letters', href: '/offer-letters', icon: <FileText className="w-4 h-4 text-amber-400" /> },
     { id: 'nav-exp', label: 'Go to Experience Letters', description: 'Issue experience letters', href: '/experience-letters', icon: <Award className="w-4 h-4 text-rose-400" /> },
     { id: 'nav-lor', label: 'Go to LOR Generator', description: 'Create recommendation letters', href: '/lor-generator', icon: <BookOpen className="w-4 h-4 text-violet-400" /> },
+    { id: 'nav-payments', label: 'Go to Payments', description: 'Process payroll & Sunday duties', href: '/payments', icon: <DollarSign className="w-4 h-4 text-emerald-400" /> },
     { id: 'nav-settings', label: 'Go to Settings', description: 'Configure HR preferences', href: '/settings', icon: <Settings className="w-4 h-4 text-slate-400" /> },
   ];
 
   // Listen to ⌘K or Ctrl+K keydown event
   useEffect(() => {
     const handleKeyDownGlobal = (e: KeyboardEvent) => {
+      if (!isAdmin) return; // Only allow administrators to open search palette
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setCommandPaletteOpen((prev) => !prev);
@@ -91,7 +100,7 @@ export function Navbar({ onMobileMenuToggle }: NavbarProps) {
     };
     window.addEventListener('keydown', handleKeyDownGlobal);
     return () => window.removeEventListener('keydown', handleKeyDownGlobal);
-  }, []);
+  }, [isAdmin]);
 
   // Autofocus input when palette opens
   useEffect(() => {
@@ -108,18 +117,18 @@ export function Navbar({ onMobileMenuToggle }: NavbarProps) {
   const filteredEmployees = searchQuery.trim() === ''
     ? []
     : employees.filter(emp =>
-        emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.email.toLowerCase().includes(searchQuery.toLowerCase())
-      ).slice(0, 5);
+      emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      emp.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      emp.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      emp.email.toLowerCase().includes(searchQuery.toLowerCase())
+    ).slice(0, 5);
 
   const filteredActions = searchQuery.trim() === ''
     ? QUICK_ACTIONS
     : QUICK_ACTIONS.filter(act =>
-        act.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        act.description.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      act.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      act.description.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
   const combinedResults = [
     ...filteredEmployees.map(emp => ({
@@ -146,8 +155,14 @@ export function Navbar({ onMobileMenuToggle }: NavbarProps) {
   };
 
   const handlePaletteKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setCommandPaletteOpen(false);
+      return;
+    }
+
     if (combinedResults.length === 0) return;
-    
+
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setSelectedIndex((prev) => (prev + 1) % combinedResults.length);
@@ -157,14 +172,12 @@ export function Navbar({ onMobileMenuToggle }: NavbarProps) {
     } else if (e.key === 'Enter') {
       e.preventDefault();
       handleSelect(combinedResults[selectedIndex]);
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      setCommandPaletteOpen(false);
     }
   };
 
   return (
-    <header className="h-16 border-b border-border bg-background/95 backdrop-blur-sm flex-shrink-0 flex items-center px-4 md:px-6 gap-4 sticky top-0 z-30">
+    <>
+      <header className="h-16 border-b border-border bg-background/95 backdrop-blur-sm flex-shrink-0 flex items-center px-4 md:px-6 gap-4 sticky top-0 z-30">
       {/* Mobile menu button */}
       <button
         onClick={onMobileMenuToggle}
@@ -179,22 +192,29 @@ export function Navbar({ onMobileMenuToggle }: NavbarProps) {
         <p className="text-sm font-semibold text-foreground">{pageInfo.title}</p>
       </div>
 
-      {/* Spotlight Trigger Search Button */}
-      <button
-        onClick={() => setCommandPaletteOpen(true)}
-        className={cn(
-          'hidden md:flex items-center gap-2.5 h-9 px-3 rounded-xl border transition-all duration-150',
-          'bg-muted/40 text-muted-foreground text-sm border-border/40 hover:border-border w-64 hover:bg-muted/70 text-left cursor-pointer group shadow-inner'
-        )}
-        id="global-search-trigger"
-        title="Search or press ⌘K"
-      >
-        <Search className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
-        <span className="flex-1 text-muted-foreground/70 text-xs select-none">Search employees, actions...</span>
-        <kbd className="hidden sm:flex items-center gap-0.5 text-[9px] text-muted-foreground border border-border/40 bg-card rounded px-1.5 py-0.5 font-sans leading-none font-bold">
-          ⌘K
-        </kbd>
-      </button>
+      {/* Spotlight Trigger Search Button for admin / Welcome greeting for employee */}
+      {isAdmin ? (
+        <button
+          onClick={() => setCommandPaletteOpen(true)}
+          className={cn(
+            'hidden md:flex items-center gap-2.5 h-9 px-3 rounded-xl border transition-all duration-150',
+            'bg-muted/40 text-muted-foreground text-sm border-border/40 hover:border-border w-64 hover:bg-muted/70 text-left cursor-pointer group shadow-inner'
+          )}
+          id="global-search-trigger"
+          title="Search or press ⌘K"
+        >
+          <Search className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
+          <span className="flex-1 text-muted-foreground/70 text-xs select-none">Search employees, actions...</span>
+          <kbd className="hidden sm:flex items-center gap-0.5 text-[9px] text-muted-foreground border border-border/40 bg-card rounded px-1.5 py-0.5 font-sans leading-none font-bold">
+            ⌘K
+          </kbd>
+        </button>
+      ) : (
+        <div className="hidden md:flex items-center gap-1.5 select-none animate-in fade-in duration-300">
+          <span className="text-sm font-semibold text-muted-foreground">Hey,</span>
+          <span className="text-sm font-bold text-foreground">{displayName}! 👋</span>
+        </div>
+      )}
 
       {/* Spacer */}
       <div className="hidden md:block flex-1" />
@@ -256,8 +276,17 @@ export function Navbar({ onMobileMenuToggle }: NavbarProps) {
               <div className="absolute right-0 top-11 z-20 w-56 glass-card rounded-xl border border-border shadow-xl p-1">
                 <div className="px-3 py-2.5 border-b border-border mb-1">
                   <div className="flex items-center gap-1.5 mb-0.5">
-                    <Shield className="w-3 h-3 text-primary flex-shrink-0" />
-                    <p className="text-xs font-semibold text-foreground">Admin</p>
+                    {isAdmin ? (
+                      <>
+                        <Shield className="w-3 h-3 text-primary flex-shrink-0" />
+                        <p className="text-xs font-semibold text-foreground">Admin</p>
+                      </>
+                    ) : (
+                      <>
+                        <User className="w-3 h-3 text-primary flex-shrink-0" />
+                        <p className="text-xs font-semibold text-foreground">Employee</p>
+                      </>
+                    )}
                   </div>
                   <p className="text-[10px] text-muted-foreground truncate">{displayEmail}</p>
                 </div>
@@ -290,21 +319,25 @@ export function Navbar({ onMobileMenuToggle }: NavbarProps) {
           )}
         </div>
       </div>
+    </header>
 
-      {/* Spotlight Command Palette Modal */}
-      {commandPaletteOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4">
-          {/* Backdrop blur overlay */}
-          <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-md transition-opacity duration-300"
-            onClick={() => setCommandPaletteOpen(false)}
-          />
+    {/* Spotlight Command Palette Modal */}
+    {commandPaletteOpen && (
+      <div 
+        onClick={() => setCommandPaletteOpen(false)}
+        className="fixed inset-0 z-50 flex items-start justify-center pt-28 px-4"
+      >
+        {/* Backdrop blur overlay */}
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-md transition-opacity duration-300"
+        />
 
-          {/* Dialog Container */}
-          <div
-            className="relative z-10 w-full max-w-xl bg-card/95 border border-border shadow-2xl rounded-2xl overflow-hidden glass-card animate-in fade-in slide-in-from-top-4 duration-200"
-            onKeyDown={handlePaletteKeyDown}
-          >
+        {/* Dialog Container */}
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="relative z-50 w-full max-w-xl bg-card/95 border border-border shadow-2xl rounded-2xl overflow-hidden glass-card animate-in fade-in slide-in-from-top-4 duration-200"
+          onKeyDown={handlePaletteKeyDown}
+        >
             {/* Input field */}
             <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border bg-muted/20">
               <Search className="w-4.5 h-4.5 text-muted-foreground flex-shrink-0" />
@@ -443,6 +476,6 @@ export function Navbar({ onMobileMenuToggle }: NavbarProps) {
           </div>
         </div>
       )}
-    </header>
+    </>
   );
 }
