@@ -236,9 +236,15 @@ def fill_template(template_filename: str, replacements: dict, output_name: str) 
                     shape.text_frame.margin_right = Inches(0)
                     try:
                         # Expand text box width by 30% to guarantee text fits on a single line
-                        shape.width = int(shape.width * 1.3)
+                        old_width = shape.width
+                        new_width = int(old_width * 1.3)
+                        shape.width = new_width
+                        
+                        # Shift the left coordinate to the left by half of the width increase
+                        # to keep the horizontal center of the shape perfectly in the same place.
+                        shape.left = shape.left - int((new_width - old_width) / 2)
                     except Exception as e:
-                        print(f"[PPTX] Warning: Could not adjust shape width: {e}")
+                        print(f"[PPTX] Warning: Could not adjust shape geometry: {e}")
 
     # Sanitize filename
     safe_name = (
