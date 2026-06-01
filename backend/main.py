@@ -42,6 +42,8 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:3001",
         "http://127.0.0.1:3000",
+        "https://hr.collegesimplified.in",
+        "http://hr.collegesimplified.in",
         # Add your Hostinger domain here
         os.environ.get("FRONTEND_URL", ""),
     ],
@@ -50,6 +52,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # =====================================================
 # LOCAL JSON STORAGE (Firestore alternative for backend)

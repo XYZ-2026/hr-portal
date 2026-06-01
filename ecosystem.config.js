@@ -19,7 +19,7 @@ module.exports = {
       env: {
         SENDER_EMAIL: 'sairamjoshi.cs@gmail.com',
         CC_EMAIL: 'support@collegesimplified.in',
-        FRONTEND_URL: 'https://yourdomain.com',
+        FRONTEND_URL: 'https://hr.collegesimplified.in',
       },
     },
   ],
