@@ -337,7 +337,7 @@ export default function SettingsPage() {
             <StatusCard
               label="HR Portal Backend"
               connected={false}
-              description="FastAPI backend at http://localhost:8000"
+              description="FastAPI backend at https://hr-portal-production-237f.up.railway.app"
             />
             <StatusCard
               label="Gmail API"

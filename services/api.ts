@@ -10,7 +10,7 @@ import {
   CreateEmployeePayload,
 } from '@/types';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://hr-portal-production-237f.up.railway.app';
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: BASE_URL,
