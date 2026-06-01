@@ -33,16 +33,31 @@ def get_gmail_service():
     os.makedirs(CREDENTIALS_DIR, exist_ok=True)
     
     gmail_credentials_json = os.environ.get("GMAIL_CREDENTIALS_JSON")
-    if gmail_credentials_json and not os.path.exists(CREDENTIALS_PATH):
-        with open(CREDENTIALS_PATH, 'w', encoding='utf-8') as f:
-            f.write(gmail_credentials_json)
-        print("[Gmail Auth] Restored credentials.json from environment variable.")
-        
     gmail_token_b64 = os.environ.get("GMAIL_TOKEN_B64")
+    
+    print(f"[Gmail Auth Diagnostic] GMAIL_CREDENTIALS_JSON env var exists: {gmail_credentials_json is not None}")
+    if gmail_credentials_json:
+        print(f"[Gmail Auth Diagnostic] GMAIL_CREDENTIALS_JSON length: {len(gmail_credentials_json)}")
+        
+    print(f"[Gmail Auth Diagnostic] GMAIL_TOKEN_B64 env var exists: {gmail_token_b64 is not None}")
+    if gmail_token_b64:
+        print(f"[Gmail Auth Diagnostic] GMAIL_TOKEN_B64 length: {len(gmail_token_b64)}")
+    
+    if gmail_credentials_json and not os.path.exists(CREDENTIALS_PATH):
+        try:
+            with open(CREDENTIALS_PATH, 'w', encoding='utf-8') as f:
+                f.write(gmail_credentials_json.strip())
+            print(f"[Gmail Auth] Restored credentials.json to {CREDENTIALS_PATH}")
+        except Exception as e:
+            print(f"[Gmail Auth Error] Failed to write credentials.json: {e}")
+        
     if gmail_token_b64 and not os.path.exists(TOKEN_PATH):
-        with open(TOKEN_PATH, 'wb') as f:
-            f.write(base64.b64decode(gmail_token_b64))
-        print("[Gmail Auth] Restored token.pkl from environment variable.")
+        try:
+            with open(TOKEN_PATH, 'wb') as f:
+                f.write(base64.b64decode(gmail_token_b64.strip()))
+            print(f"[Gmail Auth] Restored token.pkl to {TOKEN_PATH}")
+        except Exception as e:
+            print(f"[Gmail Auth Error] Failed to write token.pkl: {e}")
 
     creds = None
 
