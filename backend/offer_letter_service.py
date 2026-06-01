@@ -234,6 +234,11 @@ def fill_template(template_filename: str, replacements: dict, output_name: str) 
                     shape.text_frame.word_wrap = False
                     shape.text_frame.margin_left = Inches(0)
                     shape.text_frame.margin_right = Inches(0)
+                    try:
+                        # Expand text box width by 30% to guarantee text fits on a single line
+                        shape.width = int(shape.width * 1.3)
+                    except Exception as e:
+                        print(f"[PPTX] Warning: Could not adjust shape width: {e}")
 
     # Sanitize filename
     safe_name = (
