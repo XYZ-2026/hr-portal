@@ -224,6 +224,16 @@ def fill_template(template_filename: str, replacements: dict, output_name: str) 
     for slide in prs.slides:
         for shape in slide.shapes:
             _replace_text_in_shape(shape, replacements)
+            
+            # Post-process single-line text frames to prevent accidental wrapping in LibreOffice
+            if shape.has_text_frame:
+                text = shape.text_frame.text.strip()
+                # If it's a short text block (headers, titles, names, dates, IDs, etc.)
+                if "•" not in text and "\n" not in text and len(text) < 150:
+                    from pptx.util import Inches
+                    shape.text_frame.word_wrap = False
+                    shape.text_frame.margin_left = Inches(0)
+                    shape.text_frame.margin_right = Inches(0)
 
     # Sanitize filename
     safe_name = (
