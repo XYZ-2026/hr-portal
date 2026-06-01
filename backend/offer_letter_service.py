@@ -249,8 +249,10 @@ def fill_template(template_filename: str, replacements: dict, output_name: str) 
                         shape.width = new_width
                         
                         # Shift the left coordinate to the left by half of the width increase
-                        # to keep the horizontal center of the shape perfectly in the same place.
-                        shape.left = shape.left - int((new_width - old_width) / 2)
+                        # to keep the horizontal center of the shape perfectly in the same place
+                        # (only for Experience Letters and LORs which are centered, not Offer Letters which are left-aligned).
+                        if "OFFER" not in template_filename.upper():
+                            shape.left = shape.left - int((new_width - old_width) / 2)
                     except Exception as e:
                         print(f"[PPTX] Warning: Could not adjust shape geometry: {e}")
 
