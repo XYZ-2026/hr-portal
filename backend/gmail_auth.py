@@ -27,6 +27,23 @@ def get_gmail_service():
     Uses cached token from token.pkl. If expired, refreshes automatically.
     If no token exists, runs a console-based OAuth flow (server-safe, no browser popup).
     """
+    import base64
+    
+    # Auto-restore credentials from environment variables if not present on disk (for server environments)
+    os.makedirs(CREDENTIALS_DIR, exist_ok=True)
+    
+    gmail_credentials_json = os.environ.get("GMAIL_CREDENTIALS_JSON")
+    if gmail_credentials_json and not os.path.exists(CREDENTIALS_PATH):
+        with open(CREDENTIALS_PATH, 'w', encoding='utf-8') as f:
+            f.write(gmail_credentials_json)
+        print("[Gmail Auth] Restored credentials.json from environment variable.")
+        
+    gmail_token_b64 = os.environ.get("GMAIL_TOKEN_B64")
+    if gmail_token_b64 and not os.path.exists(TOKEN_PATH):
+        with open(TOKEN_PATH, 'wb') as f:
+            f.write(base64.b64decode(gmail_token_b64))
+        print("[Gmail Auth] Restored token.pkl from environment variable.")
+
     creds = None
 
     # Load cached token
