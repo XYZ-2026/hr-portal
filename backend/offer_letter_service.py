@@ -225,11 +225,19 @@ def fill_template(template_filename: str, replacements: dict, output_name: str) 
         for shape in slide.shapes:
             _replace_text_in_shape(shape, replacements)
             
-            # Post-process single-line text frames to prevent accidental wrapping in LibreOffice
+            # Post-process main heading text frames to prevent accidental wrapping in LibreOffice
             if shape.has_text_frame:
                 text = shape.text_frame.text.strip()
-                # If it's a short text block (headers, titles, names, dates, IDs, etc.)
-                if "•" not in text and "\n" not in text and len(text) < 150:
+                # Only apply width adjustments to the main headings (Company Header, Document Titles)
+                # to prevent smaller elements (like dates, IDs, signatures) from shifting out of alignment.
+                text_upper = text.upper()
+                is_main_heading = (
+                    "CONCEPT SIMPLIFIED" in text_upper or 
+                    "LETTER" in text_upper or 
+                    "RECOMMENDATION" in text_upper
+                )
+                
+                if is_main_heading and "•" not in text and "\n" not in text and len(text) < 150:
                     from pptx.util import Inches
                     shape.text_frame.word_wrap = False
                     shape.text_frame.margin_left = Inches(0)
