@@ -13,6 +13,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Download and install Google Poppins fonts to ensure document layouts are rendered perfectly in the PDF.
+RUN mkdir -p /usr/share/fonts/truetype/poppins \
+    && curl -L -o /usr/share/fonts/truetype/poppins/Poppins-Regular.ttf https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Regular.ttf \
+    && curl -L -o /usr/share/fonts/truetype/poppins/Poppins-Bold.ttf https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Bold.ttf \
+    && curl -L -o /usr/share/fonts/truetype/poppins/Poppins-Medium.ttf https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Medium.ttf \
+    && curl -L -o /usr/share/fonts/truetype/poppins/Poppins-SemiBold.ttf https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-SemiBold.ttf \
+    && fc-cache -f -v
+
 # Set the working directory inside the container
 WORKDIR /app
 
