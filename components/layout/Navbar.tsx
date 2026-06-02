@@ -221,15 +221,7 @@ export function Navbar({ onMobileMenuToggle }: NavbarProps) {
 
       {/* Right side actions */}
       <div className="flex items-center gap-2">
-        {/* Theme toggle */}
-        <button
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          className="p-2 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
-          id="theme-toggle"
-          title="Toggle theme"
-        >
-          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-        </button>
+
 
         {/* Notifications */}
         <button

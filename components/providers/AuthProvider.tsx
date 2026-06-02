@@ -99,6 +99,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     role: string
   ) => {
     setError(null);
+    const emailLower = email.toLowerCase();
+    if (!emailLower.endsWith('.cs@gmail.com')) {
+      const errMsg = 'Email address must be in the format of first_name.last_name.cs@gmail.com (e.g. name.cs@gmail.com)';
+      setError(errMsg);
+      throw new Error(errMsg);
+    }
     try {
       // 1. Create auth user
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);

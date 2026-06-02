@@ -57,6 +57,12 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
         icon: <Users className="w-4.5 h-4.5" />,
       },
       {
+        label: 'Employee Details',
+        href: '/employee-details',
+        icon: <FileText className="w-4.5 h-4.5" />,
+        badge: 'Onboard',
+      },
+      {
         label: 'Daily Summaries',
         href: '/daily-summaries',
         icon: <FileText className="w-4.5 h-4.5" />,

@@ -171,12 +171,17 @@ export default function LoginPage() {
                     type="email"
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); clearError(); }}
-                    placeholder="jane.doe@example.com"
+                    placeholder={activeTab === 'signup' ? 'first_name.last_name.cs@gmail.com' : 'jane.doe@example.com'}
                     autoComplete="email"
                     required
                     className="bg-transparent border-0 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none ring-0 p-0 flex-1 text-sm text-foreground placeholder:text-muted-foreground"
                   />
                 </div>
+                {activeTab === 'signup' && (
+                  <p className="text-[11px] text-amber-600 font-semibold mt-1.5 animate-in fade-in duration-300">
+                    ⚠️ MUST use email format: <strong>first_name.last_name.cs@gmail.com</strong> (e.g. <em>name.cs@gmail.com</em>)
+                  </p>
+                )}
               </div>
 
               {/* DEPARTMENT & ROLE FIELDS (only during Signup, stacked vertically) */}

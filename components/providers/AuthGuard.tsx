@@ -15,10 +15,12 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const pathname = usePathname();
 
   const isLoginPage = pathname === '/login';
+  const isRegisterPage = pathname === '/register-employee';
+  const isPublicPage = isLoginPage || isRegisterPage;
 
   useEffect(() => {
     if (!isLoading) {
-      if (!user && !isLoginPage) {
+      if (!user && !isPublicPage) {
         router.replace('/login');
       } else if (user) {
         if (isLoginPage) {
@@ -27,7 +29,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
           } else {
             router.replace('/employee-dashboard');
           }
-        } else {
+        } else if (!isRegisterPage) {
           const isAdminRoute = [
             '/dashboard',
             '/employees',
@@ -51,7 +53,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
         }
       }
     }
-  }, [user, isLoading, isLoginPage, isAdmin, isEmployee, pathname, router]);
+  }, [user, isLoading, isLoginPage, isRegisterPage, isPublicPage, isAdmin, isEmployee, pathname, router]);
 
   // Full screen loading while checking auth state
   if (isLoading) {
@@ -66,8 +68,8 @@ export function AuthGuard({ children }: AuthGuardProps) {
     );
   }
 
-  // Not authenticated and not on login page — blank while redirecting
-  if (!user && !isLoginPage) {
+  // Not authenticated and not on a public page — blank while redirecting
+  if (!user && !isPublicPage) {
     return null;
   }
 
