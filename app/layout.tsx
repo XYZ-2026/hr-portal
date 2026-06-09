@@ -23,6 +23,11 @@ export const metadata: Metadata = {
     'A comprehensive HR management portal for managing employees, offer letters, experience letters, and salary analytics.',
   keywords: ['HR', 'Human Resources', 'Employee Management', 'HR Portal', 'Offer Letters'],
   authors: [{ name: 'HR Portal Team' }],
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
 };
 
 export default function RootLayout({

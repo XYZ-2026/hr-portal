@@ -228,9 +228,11 @@ export default function RegisterEmployeePage() {
 
         {/* Header section */}
         <div className="text-center space-y-3">
-          <div className="w-16 h-16 bg-white rounded-2xl shadow-md border border-slate-200 flex items-center justify-center mx-auto mb-4">
-            <Sparkles className="w-8 h-8 text-indigo-600" />
-          </div>
+          <img
+            src="/logo.png"
+            alt="Logo"
+            className="w-16 h-16 rounded-full mx-auto mb-4 object-cover shadow-md"
+          />
           <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">
             Employee Onboarding Form
           </h1>
