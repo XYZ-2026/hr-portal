@@ -443,7 +443,20 @@ async def startup():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "HR Portal Backend"}
+    gmail_pwd = os.environ.get("GMAIL_APP_PASSWORD")
+    email_pass = os.environ.get("EMAIL_PASS")
+    sender_email = os.environ.get("SENDER_EMAIL")
+    return {
+        "status": "ok",
+        "service": "HR Portal Backend",
+        "diagnostics": {
+            "GMAIL_APP_PASSWORD_exists": gmail_pwd is not None,
+            "GMAIL_APP_PASSWORD_length": len(gmail_pwd) if gmail_pwd else 0,
+            "EMAIL_PASS_exists": email_pass is not None,
+            "EMAIL_PASS_length": len(email_pass) if email_pass else 0,
+            "SENDER_EMAIL": sender_email,
+        }
+    }
 
 
 # =====================================================
