@@ -20,7 +20,7 @@ TOKEN_PATH = os.path.join(CREDENTIALS_DIR, 'token.pkl')
 CREDENTIALS_PATH = os.path.join(CREDENTIALS_DIR, 'credentials.json')
 
 
-def get_gmail_service():
+def get_gmail_service(interactive=False):
     """
     Get an authenticated Gmail API service instance.
     
@@ -70,23 +70,43 @@ def get_gmail_service():
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             print("[Gmail Auth] Refreshing expired token...")
-            creds.refresh(Request())
+            try:
+                creds.refresh(Request())
+            except Exception as e:
+                print(f"[Gmail Auth Error] Failed to refresh token: {e}")
+                # Delete the invalid/expired token file so we can recreate it
+                if os.path.exists(TOKEN_PATH):
+                    try:
+                        os.remove(TOKEN_PATH)
+                        print("[Gmail Auth] Removed invalid token.pkl file.")
+                    except Exception as rm_err:
+                        print(f"[Gmail Auth Error] Could not remove token.pkl: {rm_err}")
+                raise RuntimeError(
+                    "Gmail token has expired or been revoked. "
+                    "Please run 'python backend/gmail_auth.py' in your terminal to re-authenticate."
+                ) from e
         else:
             if not os.path.exists(CREDENTIALS_PATH):
                 raise FileNotFoundError(
                     f"Gmail credentials.json not found at {CREDENTIALS_PATH}. "
                     "Please place your OAuth credentials file there."
                 )
+            
+            if not interactive:
+                raise RuntimeError(
+                    "Gmail token has expired or is missing. "
+                    "Please run 'python backend/gmail_auth.py' in your terminal to authenticate."
+                )
+
             print("[Gmail Auth] No valid token found. Starting OAuth flow...")
             flow = InstalledAppFlow.from_client_secrets_file(
                 CREDENTIALS_PATH,
                 SCOPES
             )
-            # Server-safe: use run_local_server without opening browser
-            # The URL will be printed to console for manual auth
+            # When running interactively in terminal, open browser for ease of login
             creds = flow.run_local_server(
                 port=0,
-                open_browser=False
+                open_browser=True
             )
 
         # Save refreshed/new token
@@ -99,4 +119,5 @@ def get_gmail_service():
     return service
 
 if __name__ == '__main__':
-    get_gmail_service()
+    print("[Gmail Auth] Starting interactive authentication...")
+    get_gmail_service(interactive=True)
