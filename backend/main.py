@@ -447,6 +447,9 @@ async def health():
     gmail_pwd = os.environ.get("GMAIL_APP_PASSWORD")
     email_pass = os.environ.get("EMAIL_PASS")
     sender_email = os.environ.get("SENDER_EMAIL")
+    gmail_refresh_token = os.environ.get("GMAIL_REFRESH_TOKEN")
+    gmail_client_id = os.environ.get("GMAIL_CLIENT_ID")
+    gmail_client_secret = os.environ.get("GMAIL_CLIENT_SECRET")
     return {
         "status": "ok",
         "service": "HR Portal Backend",
@@ -456,6 +459,12 @@ async def health():
             "EMAIL_PASS_exists": email_pass is not None,
             "EMAIL_PASS_length": len(email_pass) if email_pass else 0,
             "SENDER_EMAIL": sender_email,
+            "GMAIL_REFRESH_TOKEN_exists": gmail_refresh_token is not None,
+            "GMAIL_REFRESH_TOKEN_length": len(gmail_refresh_token) if gmail_refresh_token else 0,
+            "GMAIL_CLIENT_ID_exists": gmail_client_id is not None,
+            "GMAIL_CLIENT_ID_length": len(gmail_client_id) if gmail_client_id else 0,
+            "GMAIL_CLIENT_SECRET_exists": gmail_client_secret is not None,
+            "GMAIL_CLIENT_SECRET_length": len(gmail_client_secret) if gmail_client_secret else 0,
         }
     }
 

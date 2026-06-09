@@ -401,12 +401,7 @@ def send_email(
         attachment_path: Path to the PDF file to attach.
         cc_email: Optional CC email address.
     """
-    smtp_password = os.environ.get('GMAIL_APP_PASSWORD') or os.environ.get('EMAIL_PASS')
-    if not smtp_password:
-        raise RuntimeError(
-            "SMTP App Password is not configured. Please set the GMAIL_APP_PASSWORD "
-            "or EMAIL_PASS environment variable in the backend settings."
-        )
+    gmail_refresh_token = os.environ.get('GMAIL_REFRESH_TOKEN')
 
     message = EmailMessage()
     message['To'] = str(to_email).strip()
@@ -430,12 +425,67 @@ def send_email(
             filename=os.path.basename(attachment_path)
         )
 
-    print(f"[Email] Connecting to smtp.gmail.com...")
-    with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
-        smtp.starttls()
-        smtp.login(SENDER_EMAIL, smtp_password)
-        smtp.send_message(message)
-    print(f"[Email] Sent to: {to_email} successfully via SMTP")
+    if gmail_refresh_token:
+        # Send via Gmail REST API over HTTPS (Port 443) to bypass SMTP port blocking
+        import urllib.request
+        import urllib.parse
+        import json
+
+        client_id = os.environ.get('GMAIL_CLIENT_ID')
+        client_secret = os.environ.get('GMAIL_CLIENT_SECRET')
+        if not (client_id and client_secret):
+            raise RuntimeError(
+                "Gmail REST API Client ID or Secret is not configured. "
+                "Please set GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET environment variables."
+            )
+
+        print("[Email] Refreshing access token via Google OAuth REST API...")
+        token_url = "https://oauth2.googleapis.com/token"
+        token_data = urllib.parse.urlencode({
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "refresh_token": gmail_refresh_token,
+            "grant_type": "refresh_token"
+        }).encode('utf-8')
+
+        token_req = urllib.request.Request(token_url, data=token_data, method="POST")
+        with urllib.request.urlopen(token_req) as response:
+            res_data = json.loads(response.read().decode('utf-8'))
+            access_token = res_data["access_token"]
+
+        print("[Email] Sending email via Gmail REST API...")
+        raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
+        send_url = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
+        send_data = json.dumps({"raw": raw_message}).encode('utf-8')
+
+        send_req = urllib.request.Request(
+            send_url,
+            data=send_data,
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json"
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(send_req) as response:
+            send_res = json.loads(response.read().decode('utf-8'))
+            print(f"[Email] Sent to: {to_email} successfully via Gmail REST API. Msg ID: {send_res.get('id')}")
+    else:
+        # Fallback to SMTP App Password (often blocked on Railway unless requested)
+        smtp_password = os.environ.get('GMAIL_APP_PASSWORD') or os.environ.get('EMAIL_PASS')
+        if not smtp_password:
+            raise RuntimeError(
+                "SMTP App Password and Gmail API tokens are not configured. "
+                "Please configure GMAIL_REFRESH_TOKEN (and GMAIL_CLIENT_ID/GMAIL_CLIENT_SECRET) for REST API, "
+                "or set GMAIL_APP_PASSWORD/EMAIL_PASS for SMTP."
+            )
+
+        print(f"[Email] Connecting to smtp.gmail.com...")
+        with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
+            smtp.starttls()
+            smtp.login(SENDER_EMAIL, smtp_password)
+            smtp.send_message(message)
+        print(f"[Email] Sent to: {to_email} successfully via SMTP")
 
 
 # =====================================================
