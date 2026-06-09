@@ -14,10 +14,10 @@ import shutil
 import base64
 import mimetypes
 import time
+import smtplib
 from email.message import EmailMessage
 
 from pptx import Presentation
-from gmail_auth import get_gmail_service
 
 # =====================================================
 # CONFIG
@@ -392,7 +392,7 @@ def send_email(
     cc_email: str | None = None
 ) -> None:
     """
-    Send an email with a PDF attachment via Gmail API.
+    Send an email with a PDF attachment via SMTP (using App Password).
     
     Args:
         to_email: Recipient email address.
@@ -401,7 +401,12 @@ def send_email(
         attachment_path: Path to the PDF file to attach.
         cc_email: Optional CC email address.
     """
-    service = get_gmail_service()
+    smtp_password = os.environ.get('GMAIL_APP_PASSWORD') or os.environ.get('EMAIL_PASS')
+    if not smtp_password:
+        raise RuntimeError(
+            "SMTP App Password is not configured. Please set the GMAIL_APP_PASSWORD "
+            "or EMAIL_PASS environment variable in the backend settings."
+        )
 
     message = EmailMessage()
     message['To'] = str(to_email).strip()
@@ -425,11 +430,12 @@ def send_email(
             filename=os.path.basename(attachment_path)
         )
 
-    raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
-    send_body = {'raw': raw_message}
-
-    service.users().messages().send(userId="me", body=send_body).execute()
-    print(f"[Email] Sent to: {to_email}")
+    print(f"[Email] Connecting to smtp.gmail.com...")
+    with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
+        smtp.starttls()
+        smtp.login(SENDER_EMAIL, smtp_password)
+        smtp.send_message(message)
+    print(f"[Email] Sent to: {to_email} successfully via SMTP")
 
 
 # =====================================================
