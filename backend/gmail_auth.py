@@ -120,4 +120,12 @@ def get_gmail_service(interactive=False):
 
 if __name__ == '__main__':
     print("[Gmail Auth] Starting interactive authentication...")
+    # Force a fresh authentication flow by deleting any existing local token.pkl first
+    if os.path.exists(TOKEN_PATH):
+        try:
+            os.remove(TOKEN_PATH)
+            print("[Gmail Auth] Removed existing token.pkl to force fresh login.")
+        except Exception as e:
+            print(f"[Gmail Auth Error] Failed to delete token.pkl: {e}")
+            
     get_gmail_service(interactive=True)
