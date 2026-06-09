@@ -97,3 +97,6 @@ def get_gmail_service():
 
     service = build('gmail', 'v1', credentials=creds)
     return service
+
+if __name__ == '__main__':
+    get_gmail_service()
