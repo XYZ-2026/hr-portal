@@ -106,7 +106,9 @@ def get_gmail_service(interactive=False):
             # When running interactively in terminal, open browser for ease of login
             creds = flow.run_local_server(
                 port=0,
-                open_browser=True
+                open_browser=True,
+                access_type='offline',
+                prompt='consent'
             )
 
         # Save refreshed/new token
