@@ -188,6 +188,7 @@ export default function EmployeeDetailsPage() {
         personalEmail: selectedReg.personalEmail,
         bankDetails: selectedReg.bankDetails,
         upiDetails: selectedReg.upiDetails,
+        upiId: selectedReg.upiDetails?.upiId || selectedReg.upiDetails?.upiPhoneNo || '',
         paymentMethod: selectedReg.paymentMethod,
       });
 

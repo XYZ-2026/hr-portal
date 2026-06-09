@@ -77,8 +77,8 @@ export default function RegisterEmployeePage() {
   ) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        setFormError('File size is too large. Maximum allowed size is 2MB.');
+      if (file.size > 4 * 1024 * 1024) {
+        setFormError('File size is too large. Maximum allowed size is 4MB.');
         return;
       }
       setFileName(file.name);
@@ -149,15 +149,32 @@ export default function RegisterEmployeePage() {
         submittedAt: new Date().toISOString()
       };
 
+      // Estimate payload size (limit is 1MB for Firestore document)
+      const payloadString = JSON.stringify(payload);
+      if (payloadString.length > 1000000) {
+        setFormError('Failed to submit onboarding form. The uploaded documents exceed the maximum allowed database size of 1MB. Please compress your files (Aadhar/PAN) and try again.');
+        setIsSubmitting(false);
+        return;
+      }
+
       // Save to Firebase Firestore
       const onboardingCollection = collection(db, 'onboard_registrations');
       await addDoc(onboardingCollection, payload);
 
       setSubmitSuccess(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error submitting registration: ', err);
-      setFormError('Failed to submit onboarding form. Please check your internet connection and try again.');
+      const errStr = String(err?.message || err || '').toLowerCase();
+      if (errStr.includes('too large') || 
+          errStr.includes('exceeds') || 
+          errStr.includes('limit') || 
+          errStr.includes('size') ||
+          err?.code === 'invalid-argument') {
+        setFormError('Failed to submit onboarding form. The document size exceeds the allowed limit. Please try uploading smaller files.');
+      } else {
+        setFormError('Failed to submit onboarding form. Please check your internet connection and try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -412,7 +429,7 @@ export default function RegisterEmployeePage() {
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-slate-700">Upload Aadhar Card <span className="text-rose-500">*</span></h4>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Images or PDF up to 2MB</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Images or PDF up to 4MB</p>
                 </div>
 
                 {aadharFileName && (
@@ -440,7 +457,7 @@ export default function RegisterEmployeePage() {
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-slate-700">Upload PAN Card <span className="text-slate-400">(Optional)</span></h4>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Images or PDF up to 2MB</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Images or PDF up to 4MB</p>
                 </div>
 
                 {panFileName && (

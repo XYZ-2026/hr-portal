@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
+  User,
   FileText,
   Award,
   BookOpen,
@@ -118,6 +119,12 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
         href: '/employee-dashboard/history',
         icon: <FileText className="w-4.5 h-4.5" />,
         badge: 'New',
+      },
+      {
+        label: 'Register Employee',
+        href: '/register-employee',
+        icon: <User className="w-4.5 h-4.5" />,
+        badge: 'Onboard',
       },
     ];
 

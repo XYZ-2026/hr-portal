@@ -226,10 +226,41 @@ export default function EmployeeDashboardPage() {
 
     setUpiLoading(true);
     try {
-      await updateDoc(doc(db, 'employees', user.uid), {
+      const employeeData: any = {
         upiId: formattedUpi
+      };
+      
+      // If employee profile doesn't exist yet, initialize standard default fields from user auth
+      if (!employeeProfile) {
+        employeeData.id = user.uid;
+        employeeData.employeeId = `EMP-${Math.floor(1000 + Math.random() * 9000)}`;
+        employeeData.name = user.displayName || user.email?.split('@')[0] || 'Employee';
+        employeeData.email = user.email || '';
+        employeeData.status = 'Active';
+        employeeData.joiningDate = new Date().toISOString().split('T')[0];
+        employeeData.role = 'Employee';
+        employeeData.department = 'Engineering';
+        employeeData.salary = 0;
+      }
+
+      await setDoc(doc(db, 'employees', user.uid), employeeData, { merge: true });
+      
+      setEmployeeProfile(prev => {
+        if (prev) return { ...prev, upiId: formattedUpi };
+        return {
+          id: user.uid,
+          employeeId: employeeData.employeeId,
+          name: employeeData.name,
+          email: employeeData.email,
+          role: employeeData.role,
+          department: employeeData.department,
+          salary: employeeData.salary,
+          joiningDate: employeeData.joiningDate,
+          status: employeeData.status,
+          upiId: formattedUpi
+        } as Employee;
       });
-      setEmployeeProfile(prev => prev ? { ...prev, upiId: formattedUpi } : null);
+      
       setIsEditingUpi(false);
       toast.success('UPI ID Secured', 'Your payout UPI ID is now securely stored.');
     } catch (err) {
