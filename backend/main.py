@@ -8,6 +8,7 @@ LOR generation, email sending, PDF download, and template CRUD management.
 import os
 import json
 import uuid
+import traceback
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
@@ -643,6 +644,8 @@ async def send_offer_letter_endpoint(letter_id: str, req: SendOfferLetterRequest
             email_body=email_body,
         )
     except Exception as e:
+        print("[Email Error] Failed to send offer letter email:")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
 
     # Clean up and delete files after successful transmission
@@ -773,6 +776,8 @@ async def send_experience_letter_endpoint(letter_id: str, req: SendExperienceLet
             pdf_path=pdf_path,
         )
     except Exception as e:
+        print("[Email Error] Failed to send experience letter email:")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
 
     # Cleanup temp files
@@ -886,6 +891,8 @@ async def send_lor_endpoint(lor_id: str, req: SendLORRequest):
             pdf_path=pdf_path,
         )
     except Exception as e:
+        print("[Email Error] Failed to send LOR email:")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
 
     # Cleanup temp files
